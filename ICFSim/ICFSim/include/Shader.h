@@ -5,8 +5,6 @@
 #include "Texture.h"
 
 #include <string>
-#include <Uniform.h>
-#include <map>
 
 class Shader
 {
