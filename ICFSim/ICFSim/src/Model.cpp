@@ -1,4 +1,38 @@
 #include "Model.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include "Constants.h"
+
+Model::Model(float width, float height, Material* material)
+	: mMaterial(material)
+{
+	VertexData<float> positionData;
+	positionData.vertices = QUAD_VERTICES;
+	positionData.size = 2;
+	positionData.stride = 2;
+	positionData.offset = 0;
+	positionData.attribName = "aPos";
+	positionData.type = AttribType::Position;
+
+	VertexData<float> texCoordData;
+	texCoordData.vertices = QUAD_TEX_COORDS;
+	texCoordData.size = 2;
+	texCoordData.stride = 2;
+	texCoordData.offset = 0;
+	texCoordData.attribName = "aTexCoord";
+	texCoordData.type = AttribType::TexCoord;
+
+	std::vector<VertexData<float>> vertexData;
+	vertexData.push_back(positionData);
+	vertexData.push_back(texCoordData);
+
+	VertexData<unsigned int> indexData;
+	indexData.vertices = QUAD_INDICES;
+
+	glm::mat4 model(1.0f);
+	mMaterial->pushUniform("model", glm::scale(model, glm::vec3(width / SCREEN_WIDTH, height / SCREEN_HEIGHT, 1.0f)));
+
+	mMeshes.push_back(new Mesh(vertexData, indexData, GL_STATIC_DRAW));
+}
 
 Model::Model(std::vector<Mesh*> meshes, Material* material)
 	: mMaterial(material)

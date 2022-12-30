@@ -84,15 +84,12 @@ void Framebuffer::resize(unsigned int width, unsigned int height)
 void Framebuffer::use() const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
-    glEnable(GL_DEPTH_TEST);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Framebuffer::flush() const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDisable(GL_DEPTH_TEST);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 

@@ -4,10 +4,9 @@
 #include <SDL.h>
 #include <SDL_image.h>
 
-#include "Framebuffer.h"
+#include "Constants.h"
 
-const unsigned int SCREEN_WIDTH = 1280;
-const unsigned int SCREEN_HEIGHT = 720;
+#include "Framebuffer.h"
 
 static SDL_GLContext gContext;
 
@@ -16,6 +15,14 @@ static SDL_Window* gWindow = nullptr;
 Framebuffer* framebuffer = nullptr;
 
 Uint32 lastUpdateTime = SDL_GetTicks();
+
+Shader* fluidShader;
+Material* fluidMaterial;
+Model* fluid;
+
+Shader* boundaryShader;
+Material* boundaryMaterial;
+Model* boundary;
 
 bool init();
 void draw(float deltaTime);
@@ -146,9 +153,9 @@ bool init()
         return false;
     }
 
-    glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
+    glDisable(GL_DEPTH_TEST);
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(GLErrorCallback, nullptr);
@@ -158,6 +165,16 @@ bool init()
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    framebuffer = new Framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, "screenTexture", new Material(new Shader("shaders/screen.vert.glsl", "shaders/screen.frag.glsl")));
+
+    fluidShader = new Shader("shaders/fluid.vert.glsl", "shaders/fluid.frag.glsl");
+    fluidMaterial = new Material(fluidShader);
+    fluid = new Model(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, fluidMaterial);
+
+    boundaryShader = new Shader("shaders/boundary.vert.glsl", "shaders/boundary.frag.glsl");
+    boundaryMaterial = new Material(boundaryShader);
+    boundary = new Model(SCREEN_WIDTH / 2 + 100, SCREEN_HEIGHT / 2 + 100, boundaryMaterial);
+
     return true;
 }
 
@@ -165,13 +182,21 @@ void draw(float deltaTime)
 {
     framebuffer->use();
 
-
+    boundary->draw();
+    fluid->draw();
 
     framebuffer->flush();
 }
 
 void close()
 {
+    delete fluidShader;
+    delete fluidMaterial;
+    delete fluid;
+    delete boundaryShader;
+    delete boundaryMaterial;
+    delete boundary;
+
     SDL_GL_DeleteContext(gContext);
     SDL_DestroyWindow(gWindow);
     gWindow = NULL;

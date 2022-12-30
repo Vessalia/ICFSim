@@ -13,6 +13,28 @@ enum class AttribType
 	NEXT = 7
 };
 
+const std::vector<float> QUAD_VERTICES =
+{
+	-1.0f, -1.0f,
+	 1.0f, -1.0f,
+	-1.0f,  1.0f,
+	 1.0f,  1.0f
+};
+
+const std::vector<float> QUAD_TEX_COORDS =
+{
+	 0.0f,  0.0f,
+	 1.0f,  0.0f,
+	 0.0f,  1.0f,
+	 1.0f,  1.0f
+};
+
+const std::vector<unsigned int> QUAD_INDICES =
+{
+	0, 1, 2,
+	2, 1, 3
+};
+
 template <typename T>
 struct VertexData
 {

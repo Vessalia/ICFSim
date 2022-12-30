@@ -15,6 +15,8 @@
 class Model
 {
 public:
+	Model(float width, float height, Material* material);
+
 	Model(std::vector<Mesh*> meshes, Material* material);
 
 	~Model();
