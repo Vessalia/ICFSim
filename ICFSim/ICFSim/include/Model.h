@@ -15,24 +15,15 @@
 class Model
 {
 public:
-	Model(float width, float height, Material* material);
+	Model();
 
-	Model(std::vector<Mesh*> meshes, Material* material);
+	Model(std::vector<Mesh*> meshes);
 
 	~Model();
 
-	void draw() const;
-
-	void setMaterial(Material* material);
-
-	void setInstanceData(std::vector<glm::mat4> instanceMatrices);
+	void draw(const Material* material) const;
 
 private:
-	unsigned int mInstanceHandle = 0;
-	size_t mInstanceCount = 0;
 
 	std::vector<Mesh*> mMeshes;
-	Material* mMaterial;
-
-	std::map<std::string, Texture*> mLoadedTextures;
 };

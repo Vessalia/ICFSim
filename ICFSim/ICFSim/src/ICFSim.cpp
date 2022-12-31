@@ -3,14 +3,15 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <SDL_image.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Constants.h"
 
 #include "Framebuffer.h"
 
-static SDL_GLContext gContext;
+SDL_GLContext gContext;
 
-static SDL_Window* gWindow = nullptr;
+SDL_Window* gWindow = nullptr;
 
 Framebuffer* framebuffer = nullptr;
 
@@ -20,9 +21,14 @@ Shader* fluidShader;
 Material* fluidMaterial;
 Model* fluid;
 
-Shader* boundaryShader;
-Material* boundaryMaterial;
-Model* boundary;
+Texture* readTexture0;
+Texture* readTexture1;
+Texture* readTexture2;
+Texture* readTexture3;
+Texture* writeTexture0;
+Texture* writeTexture1;
+Texture* writeTexture2;
+Texture* writeTexture3;
 
 bool init();
 void draw(float deltaTime);
@@ -167,25 +173,45 @@ bool init()
 
     framebuffer = new Framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, "screenTexture", new Material(new Shader("shaders/screen.vert.glsl", "shaders/screen.frag.glsl")));
 
+    writeTexture0 = new Texture(TEX_RES_X, TEX_RES_Y);
+    writeTexture1 = new Texture(TEX_RES_X, TEX_RES_Y);
+    writeTexture2 = new Texture(TEX_RES_X, TEX_RES_Y);
+    writeTexture3 = new Texture(TEX_RES_X, TEX_RES_Y);
+    readTexture0 = new Texture(TEX_RES_X, TEX_RES_Y);
+    readTexture1 = new Texture(TEX_RES_X, TEX_RES_Y);
+    readTexture2 = new Texture(TEX_RES_X, TEX_RES_Y);
+    readTexture3 = new Texture(TEX_RES_X, TEX_RES_Y);
+
     fluidShader = new Shader("shaders/fluid.vert.glsl", "shaders/fluid.frag.glsl");
     fluidMaterial = new Material(fluidShader);
-    fluid = new Model(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, fluidMaterial);
 
-    boundaryShader = new Shader("shaders/boundary.vert.glsl", "shaders/boundary.frag.glsl");
-    boundaryMaterial = new Material(boundaryShader);
-    boundary = new Model(SCREEN_WIDTH / 2 + 100, SCREEN_HEIGHT / 2 + 100, boundaryMaterial);
+    fluid = new Model();
 
     return true;
+}
+
+void swapContext()
+{
+    std::swap(readTexture0, writeTexture0);
+    std::swap(readTexture1, writeTexture1);
+    std::swap(readTexture2, writeTexture2);
+    std::swap(readTexture3, writeTexture3);
 }
 
 void draw(float deltaTime)
 {
     framebuffer->use();
 
-    boundary->draw();
-    fluid->draw();
+    fluidMaterial->pushUniform("velocityMap", *readTexture0);
+    fluidMaterial->pushUniform("pressureyMap", *readTexture1);
+    fluidMaterial->pushUniform("inkMap", *readTexture2);
+    fluidMaterial->pushUniform("vorocityMap", *readTexture3);
+    fluidMaterial->pushUniform("dt", deltaTime);
+    fluid->draw(fluidMaterial);
 
     framebuffer->flush();
+
+    swapContext();
 }
 
 void close()
@@ -193,9 +219,15 @@ void close()
     delete fluidShader;
     delete fluidMaterial;
     delete fluid;
-    delete boundaryShader;
-    delete boundaryMaterial;
-    delete boundary;
+
+    delete writeTexture0;
+    delete writeTexture1;
+    delete writeTexture2;
+    delete writeTexture3;
+    delete readTexture0;
+    delete readTexture1;
+    delete readTexture2;
+    delete readTexture3;
 
     SDL_GL_DeleteContext(gContext);
     SDL_DestroyWindow(gWindow);

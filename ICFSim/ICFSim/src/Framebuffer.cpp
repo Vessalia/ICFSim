@@ -59,7 +59,7 @@ Framebuffer::Framebuffer(unsigned int width, unsigned int height, const std::str
     frameVertexData.push_back(frameTexData);
 
     mMaterial->pushUniform(mTextureName, mFrameTexture);
-    mFrameModel = new Model({ new Mesh(frameVertexData, frameIndexData, GL_STATIC_DRAW) }, mMaterial);
+    mFrameModel = new Model({ new Mesh(frameVertexData, frameIndexData, GL_STATIC_DRAW) });
 }
 
 Framebuffer::~Framebuffer()
@@ -90,8 +90,5 @@ void Framebuffer::use() const
 void Framebuffer::flush() const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    mFrameModel->draw();
+    mFrameModel->draw(mMaterial);
 }
