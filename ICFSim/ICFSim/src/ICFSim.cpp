@@ -25,6 +25,7 @@ Texture* readTexture0;
 Texture* readTexture1;
 Texture* readTexture2;
 Texture* readTexture3;
+
 Texture* writeTexture0;
 Texture* writeTexture1;
 Texture* writeTexture2;
@@ -203,7 +204,7 @@ void draw(float deltaTime)
     framebuffer->use();
 
     fluidMaterial->pushUniform("velocityMap", *readTexture0);
-    fluidMaterial->pushUniform("pressureyMap", *readTexture1);
+    fluidMaterial->pushUniform("pressureMap", *readTexture1);
     fluidMaterial->pushUniform("inkMap", *readTexture2);
     fluidMaterial->pushUniform("vorocityMap", *readTexture3);
     fluidMaterial->pushUniform("dt", deltaTime);
