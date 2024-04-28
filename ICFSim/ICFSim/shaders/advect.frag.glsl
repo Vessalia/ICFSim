@@ -9,26 +9,25 @@ uniform float dt;
 uniform float dissipation;
 uniform sampler2D x;
 
+vec4 lerp(vec4 a, vec4 b, float t)
+{
+	return a + t * b;
+}
+
 vec4 bilerp(sampler2D map, vec2 pos)
 {
-	vec2 relPosTL = vec2(int(pos.x), int(pos.y));
-	vec2 relPosBR = relPosTL + vec2(1, -1);
-	float pL = relPosTL.x;
-	float pR = relPosBR.x;
-	float pB = relPosBR.y;
-	float pT = relPosTL.y;
+	vec4 posT;
+	posT.xy = floor(pos - 0.5) + 0.5;
+	posT.zw = posT.xy + 1;
 
-	float tx = (pos.x - pL) / (pR - pL);
-	float ty = (pos.y - pT) / (pB - pT);
+	vec2 t = pos - posT.xy;
 
-	vec2 pos1X = vec2(pL, pT) + vec2(pR, pT) * tx;
-	vec2 pos2X = vec2(pL, pB) + vec2(pR, pB) * tx;
+	vec4 tex11 = texture(x, posT.xy);
+	vec4 tex21 = texture(x, posT.zy);
+	vec4 tex12 = texture(x, posT.xw);
+	vec4 tex22 = texture(x, posT.zw);
 
-	vec2 point = pos1X + pos2X * ty;
-
-	point *= invDim;
-
-	return texture(map, point);
+	return lerp(lerp(tex11, tex21, t.x), lerp(tex12, tex22, t.x), t.y);
 }
 
 vec4 advect(sampler2D map)
