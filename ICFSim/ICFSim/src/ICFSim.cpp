@@ -6,34 +6,58 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Constants.h"
-
 #include "Framebuffer.h"
 
 SDL_GLContext gContext;
 
 SDL_Window* gWindow = nullptr;
 
+Material* screenMaterial;
+Material* fluidMaterial;
+
 Framebuffer* framebuffer = nullptr;
 
 Uint32 lastUpdateTime = SDL_GetTicks();
+float deltaTime; // need global to be used in the SDL event system
 
-Shader* fluidShader;
-Material* fluidMaterial;
+Shader* advectShader;
+Material* advectMaterial;
+
+Shader* diffuseShader;
+Material* diffuseMaterial;
+
+Shader* impulseShader;
+Material* impulseMaterial;
+
+Shader* divShader;
+Material* divMaterial;
+
+Shader* gradShader;
+Material* gradMaterial;
+
+Shader* boundaryShader;
+Material* boundaryMaterial;
+
+Model* screen;
 Model* fluid;
 
-Texture* readTexture0;
-Texture* readTexture1;
-Texture* readTexture2;
-Texture* readTexture3;
+Framebuffer* velReadFramebuffer;
+Framebuffer* psiReadFramebuffer;
+Framebuffer* inkReadFramebuffer;
+Framebuffer* vorReadFramebuffer;
 
-Texture* writeTexture0;
-Texture* writeTexture1;
-Texture* writeTexture2;
-Texture* writeTexture3;
+Framebuffer* velWriteFramebuffer;
+Framebuffer* psiWriteFramebuffer;
+Framebuffer* inkWriteFramebuffer;
+Framebuffer* vorWriteFramebuffer;
+
+Framebuffer* tempReadFramebuffer;
+Framebuffer* tempWriteFramebuffer;
 
 bool init();
 void draw(float deltaTime);
 void close();
+void handleMovement(SDL_Event* event, float dt);
 
 int main()
 {
@@ -55,6 +79,7 @@ int main()
             {
                 quit = true;
             }
+
             if (e.type == SDL_WINDOWEVENT)
             {
                 if (e.window.event == SDL_WINDOWEVENT_RESIZED)
@@ -66,7 +91,13 @@ int main()
                     }
                 }
             }
+            
+            if (e.type == SDL_MOUSEMOTION)
+            {
+                handleMovement(&e, deltaTime);
+            }
         }
+
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -74,8 +105,8 @@ int main()
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        float deltaTime = (SDL_GetTicks() - lastUpdateTime) / 1000.f;
-        draw(deltaTime);
+        deltaTime = (SDL_GetTicks() - lastUpdateTime) / 1000.f;
+        draw(1 / 60.0);
         lastUpdateTime = SDL_GetTicks();
 
         SDL_GL_SwapWindow(gWindow);
@@ -163,6 +194,7 @@ bool init()
     glDepthFunc(GL_LESS);
 
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(GLErrorCallback, nullptr);
@@ -172,63 +204,245 @@ bool init()
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    framebuffer = new Framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, "screenTexture", new Material(new Shader("shaders/screen.vert.glsl", "shaders/screen.frag.glsl")));
+    screenMaterial = new Material(new Shader("shaders/screen.vert.glsl", "shaders/screen.frag.glsl"));
+    fluidMaterial = new Material(new Shader("shaders/screen.vert.glsl", "shaders/fluid.frag.glsl"));
 
-    writeTexture0 = new Texture(TEX_RES_X, TEX_RES_Y);
-    writeTexture1 = new Texture(TEX_RES_X, TEX_RES_Y);
-    writeTexture2 = new Texture(TEX_RES_X, TEX_RES_Y);
-    writeTexture3 = new Texture(TEX_RES_X, TEX_RES_Y);
-    readTexture0 = new Texture(TEX_RES_X, TEX_RES_Y);
-    readTexture1 = new Texture(TEX_RES_X, TEX_RES_Y);
-    readTexture2 = new Texture(TEX_RES_X, TEX_RES_Y);
-    readTexture3 = new Texture(TEX_RES_X, TEX_RES_Y);
+    framebuffer = new Framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, screenMaterial);
 
-    fluidShader = new Shader("shaders/fluid.vert.glsl", "shaders/fluid.frag.glsl");
-    fluidMaterial = new Material(fluidShader);
+    velWriteFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+    psiWriteFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+    inkWriteFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+    vorWriteFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
 
-    fluid = new Model();
+    velReadFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+    psiReadFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+    inkReadFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+    vorReadFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+
+    tempReadFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+    tempWriteFramebuffer = new Framebuffer(TEX_RES_X, TEX_RES_Y, screenMaterial);
+
+    advectShader = new Shader("shaders/screen.vert.glsl", "shaders/advect.frag.glsl");
+    advectMaterial = new Material(advectShader);
+    advectMaterial->pushUniform("invDim", INV_DIM);
+    advectMaterial->pushUniform("rdx", 1 / DX);
+
+    diffuseShader = new Shader("shaders/screen.vert.glsl", "shaders/diffuse.frag.glsl");
+    diffuseMaterial = new Material(diffuseShader);
+    diffuseMaterial->pushUniform("invDim", INV_DIM);
+
+    impulseShader = new Shader("shaders/screen.vert.glsl", "shaders/impulse.frag.glsl");
+    impulseMaterial = new Material(impulseShader);
+    impulseMaterial->pushUniform("invR", 1 / BRUSH_RADIUS);
+
+    divShader = new Shader("shaders/screen.vert.glsl", "shaders/div.frag.glsl");
+    divMaterial = new Material(divShader);
+    divMaterial->pushUniform("halfrdx", 0.5f / DX);
+    divMaterial->pushUniform("invDim", INV_DIM);
+
+    gradShader = new Shader("shaders/screen.vert.glsl", "shaders/grad.frag.glsl");
+    gradMaterial = new Material(gradShader);
+    gradMaterial->pushUniform("halfrdx", 0.5f / DX);
+    gradMaterial->pushUniform("invDim", INV_DIM);
+
+    boundaryShader = new Shader("shaders/screen.vert.glsl", "shaders/boundary.frag.glsl");
+    boundaryMaterial = new Material(boundaryShader);
+    boundaryMaterial->pushUniform("invDim", INV_DIM);
+
+    screen = new Model();
 
     return true;
 }
 
-void swapContext()
+bool doImpulse = false;
+int prevMouseX = 0;
+int prevMouseY = 0;
+void handleMovement(SDL_Event* event, float dt)
 {
-    std::swap(readTexture0, writeTexture0);
-    std::swap(readTexture1, writeTexture1);
-    std::swap(readTexture2, writeTexture2);
-    std::swap(readTexture3, writeTexture3);
+    int x, y;
+    SDL_GetMouseState(&x, &y);
+    if (event->type == SDL_MOUSEMOTION && event->motion.state & SDL_BUTTON(SDL_BUTTON_LEFT))
+    {
+        float dx = x - prevMouseX;
+        float dy = y - prevMouseY; 
+        float valX = (float)x / SCREEN_WIDTH;
+        float valY = 1 - (float)y / SCREEN_HEIGHT;
+
+        glm::vec2 pos(valX, valY);
+        float forceX = std::min(std::max(dx / SCREEN_WIDTH, -1.f), 1.f);
+        float forceY = std::min(std::max(dy / SCREEN_HEIGHT, -1.f), 1.f);
+        glm::vec4 force(forceX, forceY, 0, 0);
+        impulseMaterial->pushUniform("impulsePos", pos);
+        impulseMaterial->pushUniform("Fdt", force);
+
+        prevMouseX = x;
+        prevMouseY = y;
+        doImpulse = true;
+    }
+}
+
+void swapBuffers()
+{
+    std::swap(velReadFramebuffer, velWriteFramebuffer);
+    std::swap(psiReadFramebuffer, psiWriteFramebuffer);
+    std::swap(inkReadFramebuffer, inkWriteFramebuffer);
+    std::swap(vorReadFramebuffer, vorWriteFramebuffer);
+
+    std::swap(tempReadFramebuffer, tempWriteFramebuffer);
 }
 
 void draw(float deltaTime)
 {
-    framebuffer->use();
+    // Impulse
+    if (doImpulse)
+    {
+        glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "impulse step");
+        velWriteFramebuffer->use();
+        impulseMaterial->pushUniform("base", velReadFramebuffer->getFrameTexture());
+        screen->draw(impulseMaterial);
+        std::swap(velWriteFramebuffer, velReadFramebuffer);
 
-    fluidMaterial->pushUniform("velocityMap", *readTexture0);
-    fluidMaterial->pushUniform("pressureMap", *readTexture1);
-    fluidMaterial->pushUniform("inkMap", *readTexture2);
-    fluidMaterial->pushUniform("vorocityMap", *readTexture3);
-    fluidMaterial->pushUniform("dt", deltaTime);
-    fluid->draw(fluidMaterial);
+        inkWriteFramebuffer->use();
+        impulseMaterial->pushUniform("base", inkReadFramebuffer->getFrameTexture());
+        impulseMaterial->pushUniform("Fdt", INK_COLOUR);
+        screen->draw(impulseMaterial);
+        std::swap(inkWriteFramebuffer, inkReadFramebuffer);
+        glPopDebugGroup();
+
+        doImpulse = false;
+    }
+
+    glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "advection step");
+    // Advect
+    velWriteFramebuffer->use();
+    boundaryMaterial->pushUniform("scale", -1);
+    boundaryMaterial->pushUniform("x", velReadFramebuffer->getFrameTexture());
+    screen->draw(boundaryMaterial);
+    std::swap(velWriteFramebuffer, velReadFramebuffer);
+
+    velWriteFramebuffer->use();
+    advectMaterial->pushUniform("x", velReadFramebuffer->getFrameTexture());
+    advectMaterial->pushUniform("dissipation", VELOCITY_DISSIPATION);
+    advectMaterial->pushUniform("dt", deltaTime);
+    screen->draw(advectMaterial);
+    std::swap(velWriteFramebuffer, velReadFramebuffer);
+
+    inkWriteFramebuffer->use();
+    boundaryMaterial->pushUniform("scale", 0);
+    boundaryMaterial->pushUniform("x", inkReadFramebuffer->getFrameTexture());
+    screen->draw(boundaryMaterial);
+    std::swap(inkWriteFramebuffer, inkReadFramebuffer);
+
+    inkWriteFramebuffer->use();
+    advectMaterial->pushUniform("x", inkReadFramebuffer->getFrameTexture());
+    advectMaterial->pushUniform("dissipation", INK_LONGEVITY);
+    screen->draw(advectMaterial);
+    std::swap(inkWriteFramebuffer, inkReadFramebuffer);
+    glPopDebugGroup();
+
+    // Vorocity
+
+    // Diffuse
+    if (VISCOSITY > 0)
+    {
+        for (size_t i = 0; i < JACOBI_ITERATIONS_DIFFUSE; ++i)
+        {
+            velWriteFramebuffer->use();
+            float centerFactor = DX * DX / (VISCOSITY * deltaTime);
+            float stencilFactor = 1.f / (4 + centerFactor);
+            diffuseMaterial->pushUniform("x", velReadFramebuffer->getFrameTexture());
+            diffuseMaterial->pushUniform("b", velReadFramebuffer->getFrameTexture());
+            diffuseMaterial->pushUniform("alpha", centerFactor);
+            diffuseMaterial->pushUniform("rBeta", stencilFactor);
+            screen->draw(diffuseMaterial);
+            std::swap(velWriteFramebuffer, velReadFramebuffer);
+        }
+    }
+
+    // Divergence
+    glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "divergence step");
+    tempWriteFramebuffer->use();
+    divMaterial->pushUniform("map", velReadFramebuffer->getFrameTexture());
+    screen->draw(divMaterial);
+    std::swap(tempWriteFramebuffer, tempReadFramebuffer);
+
+    boundaryMaterial->pushUniform("scale", 1);
+
+    diffuseMaterial->pushUniform("alpha", -DX * DX);
+    diffuseMaterial->pushUniform("rBeta", 0.25f);
+    diffuseMaterial->pushUniform("b", tempReadFramebuffer->getFrameTexture());
+
+    for (int i = 0; i < JACOBI_ITERATIONS_GRAD; ++i)
+    {
+        psiWriteFramebuffer->use();
+        boundaryMaterial->pushUniform("x", psiReadFramebuffer->getFrameTexture());
+        screen->draw(boundaryMaterial);
+        std::swap(psiWriteFramebuffer, psiReadFramebuffer);
+
+        psiWriteFramebuffer->use();
+        diffuseMaterial->pushUniform("x", psiReadFramebuffer->getFrameTexture());
+        screen->draw(diffuseMaterial);
+        std::swap(psiWriteFramebuffer, psiReadFramebuffer);
+    }
+
+    velWriteFramebuffer->use();
+    boundaryMaterial->pushUniform("x", velReadFramebuffer->getFrameTexture());
+    boundaryMaterial->pushUniform("scale", -1);
+    screen->draw(boundaryMaterial);
+    std::swap(velWriteFramebuffer, velReadFramebuffer);
+
+    velWriteFramebuffer->use();
+    gradMaterial->pushUniform("mapP", psiReadFramebuffer->getFrameTexture());
+    gradMaterial->pushUniform("mapW", velReadFramebuffer->getFrameTexture());
+    screen->draw(gradMaterial);
+    glPopDebugGroup();
+
+
+    glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "blit");
+    framebuffer->use();
+    glViewport(0, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    screenMaterial->pushUniform("screenTexture", velReadFramebuffer->getFrameTexture());
+    screen->draw(screenMaterial);
+    glViewport(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    screenMaterial->pushUniform("screenTexture", inkReadFramebuffer->getFrameTexture());
+    screen->draw(screenMaterial);
+    glViewport(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    screenMaterial->pushUniform("screenTexture", psiReadFramebuffer->getFrameTexture());
+    screen->draw(screenMaterial);
+    glViewport(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    screenMaterial->pushUniform("screenTexture", tempReadFramebuffer->getFrameTexture());
+    screen->draw(screenMaterial);
+    glPopDebugGroup();
 
     framebuffer->flush();
 
-    swapContext();
+    swapBuffers();
 }
 
 void close()
 {
-    delete fluidShader;
-    delete fluidMaterial;
-    delete fluid;
+    delete advectShader;
+    delete advectMaterial; 
+    delete diffuseShader;
+    delete diffuseMaterial; 
+    delete impulseShader;
+    delete impulseMaterial;
+    delete boundaryShader;
+    delete boundaryMaterial;
+    delete screen;
 
-    delete writeTexture0;
-    delete writeTexture1;
-    delete writeTexture2;
-    delete writeTexture3;
-    delete readTexture0;
-    delete readTexture1;
-    delete readTexture2;
-    delete readTexture3;
+    delete velWriteFramebuffer;
+    delete psiWriteFramebuffer;
+    delete inkWriteFramebuffer;
+    delete vorWriteFramebuffer;
+
+    delete velReadFramebuffer;
+    delete psiReadFramebuffer;
+    delete inkReadFramebuffer;
+    delete vorReadFramebuffer;
+
+    delete tempWriteFramebuffer;
+    delete tempReadFramebuffer;
 
     SDL_GL_DeleteContext(gContext);
     SDL_DestroyWindow(gWindow);
@@ -236,5 +450,6 @@ void close()
 
     IMG_Quit();
 
+    delete screenMaterial;
     delete framebuffer;
 }

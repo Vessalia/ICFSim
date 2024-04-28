@@ -81,5 +81,13 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="shaders\fluid.frag.glsl" />
+    <None Include="shaders\diffuse.frag.glsl" />
+    <None Include="shaders\impulse.frag.glsl" />
+    <None Include="shaders\boundary.frag.glsl" />
+    <None Include="shaders\div.frag.glsl" />
+    <None Include="shaders\grad.frag.glsl" />
+    <None Include="shaders\advect.frag.glsl" />
+    <None Include="shaders\screen.frag.glsl" />
+    <None Include="shaders\screen.vert.glsl" />
   </ItemGroup>
 </Project>

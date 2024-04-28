@@ -5,7 +5,7 @@ Material::Material(Shader* shader)
 
 Material::~Material()
 {
-    //this needs to be handled
+    mUniforms.clear();
 }
 
 void Material::pushUniform(const std::string& name, const Uniform& uniform)

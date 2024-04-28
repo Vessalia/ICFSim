@@ -14,6 +14,11 @@ public:
 
 	void use() const;
 
+	bool hasUniform(const std::string& name) const
+	{
+		return mUniforms.find(name) != mUniforms.end();
+	}
+
 	Shader* getShader() const
 	{
 		return mShader;

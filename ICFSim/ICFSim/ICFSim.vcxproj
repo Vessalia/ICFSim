@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -44,7 +44,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="shaders\advect.frag.glsl" />
+    <None Include="shaders\boundary.frag.glsl" />
+    <None Include="shaders\diffuse.frag.glsl" />
+    <None Include="shaders\div.frag.glsl" />
     <None Include="shaders\fluid.frag.glsl" />
+    <None Include="shaders\grad.frag.glsl" />
+    <None Include="shaders\impulse.frag.glsl" />
+    <None Include="shaders\screen.frag.glsl" />
+    <None Include="shaders\screen.vert.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

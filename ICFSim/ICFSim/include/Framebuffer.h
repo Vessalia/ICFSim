@@ -8,7 +8,7 @@
 class Framebuffer
 {
 public:
-    Framebuffer(unsigned int width, unsigned int height, const std::string& textureName, Material* material, int texComponent = GL_RGB, int glAttachment = GL_COLOR_ATTACHMENT0);
+    Framebuffer(unsigned int width, unsigned int height, Material* material, int texComponent = GL_RGBA32F, int glAttachment = GL_COLOR_ATTACHMENT0);
 
     ~Framebuffer();
 
@@ -16,7 +16,11 @@ public:
 
     void use() const;
 
+    void clear() const;
+
     void flush() const;
+
+    const Texture& getFrameTexture() const;
 
 private:
     unsigned int ID;
@@ -25,12 +29,13 @@ private:
     unsigned int mWidth;
     unsigned int mHeight;
 
+    int mGlAttachment;
+
     Texture mFrameTexture;
     Model* mFrameModel;
     Material* mMaterial;
-    std::string mTextureName;
 
-    std::vector<float> quadVertices =
+    static const inline std::vector<float> quadVertices =
     {
         -1.0f, -1.0f,  0.0f, 0.0f,
          1.0f, -1.0f,  1.0f, 0.0f,
@@ -38,7 +43,7 @@ private:
          1.0f,  1.0f,  1.0f, 1.0f
     };
 
-    std::vector<unsigned int> quadIndices =
+    static const inline std::vector<unsigned int> quadIndices =
     {
          0, 1, 2,
 

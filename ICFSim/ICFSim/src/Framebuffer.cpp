@@ -1,31 +1,28 @@
 #include "Framebuffer.h"
 #include "iostream"
 #include <VertexData.h>
+#include "Constants.h"
 
-Framebuffer::Framebuffer(unsigned int width, unsigned int height, const std::string& textureName, Material* material, int texComponent, int glAttachment)
-    : mFrameTexture(Texture(width, height, texComponent))
-    , mTextureName(textureName)
+Framebuffer::Framebuffer(unsigned int width, unsigned int height, Material* material, int texComponent, int glAttachment)
+    : mFrameTexture(Texture(width, height, texComponent, GL_FLOAT))
+    , mGlAttachment(glAttachment)
     , mMaterial(material)
     , mWidth(width)
     , mHeight(height)
 {
     glGenFramebuffers(1, &ID);
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, glAttachment, GL_TEXTURE_2D, mFrameTexture.ID, 0);
-    if (glAttachment == GL_COLOR_ATTACHMENT0)
+    if (glAttachment == GL_DEPTH_ATTACHMENT)
     {
         glGenRenderbuffers(1, &rID);
         glBindRenderbuffer(GL_RENDERBUFFER, rID);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rID);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
     }
-    else if (glAttachment == GL_DEPTH_ATTACHMENT)
+    else if (glAttachment == GL_COLOR_ATTACHMENT0)
     {
         glFramebufferTexture2D(GL_FRAMEBUFFER, glAttachment, GL_TEXTURE_2D, mFrameTexture.ID, 0);
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
     }
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -36,8 +33,8 @@ Framebuffer::Framebuffer(unsigned int width, unsigned int height, const std::str
 
     VertexData<float> framePosData;
     VertexData<float> frameTexData;
-    framePosData.vertices = quadVertices;
-    frameTexData.vertices = quadVertices;
+    framePosData.vertices = Framebuffer::quadVertices;
+    frameTexData.vertices = Framebuffer::quadVertices;
 
     framePosData.size = 2;
     framePosData.stride = 4;
@@ -58,14 +55,13 @@ Framebuffer::Framebuffer(unsigned int width, unsigned int height, const std::str
     frameVertexData.push_back(framePosData);
     frameVertexData.push_back(frameTexData);
 
-    mMaterial->pushUniform(mTextureName, mFrameTexture);
     mFrameModel = new Model({ new Mesh(frameVertexData, frameIndexData, GL_STATIC_DRAW) });
+    clear();
 }
 
 Framebuffer::~Framebuffer()
 {
     delete mFrameModel;
-    delete mMaterial;
 
     glDeleteRenderbuffers(1, &rID);
     glDeleteFramebuffers(1, &ID);
@@ -73,22 +69,42 @@ Framebuffer::~Framebuffer()
 
 void Framebuffer::resize(unsigned int width, unsigned int height)
 {
+    mWidth = width; mHeight = height;
     mFrameTexture.resize(width, height);
-    mMaterial->pushUniform(mTextureName, mFrameTexture);
+    mMaterial->pushUniform("screenTexture", mFrameTexture);
 
     glBindRenderbuffer(GL_RENDERBUFFER, rID);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    if (mGlAttachment == GL_COLOR_ATTACHMENT0) 
+    {
+        glFramebufferTexture2D(GL_FRAMEBUFFER, mGlAttachment, GL_TEXTURE_2D, mFrameTexture.ID, 0);
+    }
+    else if (mGlAttachment == GL_DEPTH_ATTACHMENT) 
+    {
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rID);
+    }
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
 void Framebuffer::use() const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, mWidth, mHeight);
+}
+
+void Framebuffer::clear() const
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void Framebuffer::flush() const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    mMaterial->pushUniform("screenTexture", mFrameTexture);
     mFrameModel->draw(mMaterial);
+}
+
+const Texture& Framebuffer::getFrameTexture() const
+{
+    return mFrameTexture;
 }
